@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Barbie Puzzle Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #fbeaf3;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+        }
+
+        h1 {
+            color: #d43da4;
+            margin-top: 20px;
+            animation: fadeIn 2s;
+        }
+
+        #home {
+            display: none;
+            padding: 50px;
+        }
+
+        #home button {
+            background-color: #d43da4;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            cursor: pointer;
+            border-radius: 5px;
+            margin: 10px;
+            transition: background-color 0.3s;
+        }
+
+        #home button:hover {
+            background-color: #b33284;
+        }
+
+        #game, #settings-menu, #levels-menu {
+            display: none;
+        }
+
+        #game-board {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            gap: 5px;
+            justify-content: center;
+            margin: 20px auto;
+            background-color: #ffe0f5;
+            padding: 10px;
+            border-radius: 10px;
+        }
+
+        .tile {
+            width: 100px;
+            height: 100px;
+            background-color: #ffe0f5;
+            border: 1px solid #d43da4;
+            cursor: pointer;
+            font-size: 0;
+            transition: transform 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .tile:hover {
+            transform: scale(1.05);
+        }
+
+        .empty {
+            background-color: #fbeaf3;
+            border: none;
+            cursor: default;
+        }
+
+        #controls {
+            margin-top: 20px;
+        }
+
+        button {
+            background-color: #d43da4;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 5px;
+            margin: 10px;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #b33284;
+        }
+
+        #message {
+            margin-top: 10px;
+            font-size: 18px;
+            color: #d43da4;
+        }
+
+        #menu {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+        }
+
+        .menu-btn {
+            background-color: #d43da4;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            font-size: 14px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        .menu-btn:hover {
+            background-color: #b33284;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+    </style>
+</head>
+<body>
+    <div id="home">
+        <h1>Welcome to Barbie Puzzle Game</h1>
+        <button onclick="startGame()">Start Game</button>
+        <button onclick="showLevelsMenu()">Levels</button>
+        <button onclick="showSettingsMenu()">Settings</button>
+    </div>
+
+    <div id="game">
+        <div id="menu">
+            <button class="menu-btn" onclick="goHome()">Home</button>
+            <button class="menu-btn" onclick="showSettingsMenu()">Settings</button>
+        </div>
+
+        <h1>Barbie Puzzle Game - Level <span id="current-level">1</span></h1>
+        <div id="game-board"></div>
+        <div id="controls">
+            <button id="shuffle">Shuffle</button>
+            <button id="solve">Solve</button>
+            <button id="next-level" style="display: none;">Next Level</button>
+        </div>
+        <div id="message"></div>
+        <div id="moves">Moves: <span id="move-count">0</span></div>
+    </div>
+
+    <div id="settings-menu">
+        <h1>Settings</h1>
+        <label>
+            <input type="checkbox" id="bg-music-toggle" checked>
+            Background Music
+        </label>
+        <br>
+        <label>
+            <input type="checkbox" id="touch-sound-toggle" checked>
+            Touch Sound
+        </label>
+        <br><br>
+        <button onclick="goHome()">Back</button>
+    </div>
+
+    <div id="levels-menu">
+        <h1>Select a Level</h1>
+        <div id="levels"></div>
+        <button onclick="goHome()">Back</button>
+    </div>
+
+    <audio id="bg-music" loop>
+        <source src="background-music.mp3" type="audio/mp3">
+    </audio>
+    <audio id="click-sound">
+        <source src="touch-sound.mp3" type="audio/mp3">
+    </audio>
+    <audio id="success-sound">
+        <source src="success-sound.mp3" type="audio/mp3">
+    </audio>
+
+    <script>
+        const boardSize = 3;
+        const levels = 20;
+        let currentLevel = 1;
+        let moveCount = 0;
+
+        const homeScreen = document.getElementById('home');
+        const gameScreen = document.getElementById('game');
+        const settingsMenu = document.getElementById('settings-menu');
+        const levelsMenu = document.getElementById('levels-menu');
+        const gameBoard = document.getElementById('game-board');
+        const shuffleButton = document.getElementById('shuffle');
+        const solveButton = document.getElementById('solve');
+        const nextLevelButton = document.getElementById('next-level');
+        const message = document.getElementById('message');
+        const bgMusic = document.getElementById('bg-music');
+        const clickSound = document.getElementById('click-sound');
+        const successSound = document.getElementById('success-sound');
+        const bgMusicToggle = document.getElementById('bg-music-toggle');
+        const touchSoundToggle = document.getElementById('touch-sound-toggle');
+        const levelsDiv = document.getElementById('levels');
+        const currentLevelSpan = document.getElementById('current-level');
+        const moveCountSpan = document.getElementById('move-count');
+
+        let tiles = [];
+
+        function createBoard() {
+            gameBoard.innerHTML = '';
+            const imageFileName = `barbie${currentLevel}.jpg`;
+            tiles.forEach((tile, index) => {
+                const div = document.createElement('div');
+                div.classList.add('tile');
+                if (tile === 0) {
+                    div.classList.add('empty');
+                } else {
+                    div.style.backgroundImage = `url('${imageFileName}')`;
+                    div.style.backgroundSize = `${boardSize * 100}px ${boardSize * 100}px`;
+                    div.style.backgroundPosition = `-${(tile - 1) % boardSize * 100}px -${Math.floor((tile - 1) / boardSize) * 100}px`;
+                }
+                div.dataset.index = index;
+                gameBoard.appendChild(div);
+            });
+        }
+
+        function shuffleBoard() {
+            moveCount = 0;
+            updateMoveCount();
+            do {
+                tiles = tiles.sort(() => Math.random() - 0.5);
+            } while (!isSolvable() || isSolved());
+            createBoard();
+            message.textContent = '';
+        }
+
+        function isSolvable() {
+            let inversions = 0;
+            for (let i = 0; i < tiles.length; i++) {
+                for (let j = i + 1; j < tiles.length; j++) {
+                    if (tiles[i] && tiles[j] && tiles[i] > tiles[j]) {
+                        inversions++;
+                    }
+                }
+            }
+            return inversions % 2 === 0;
+        }
+
+        function isSolved() {
+            for (let i = 0; i < tiles.length - 1; i++) {
+                if (tiles[i] !== i + 1) {
+                    return false;
+                }
+            }
+            return tiles[tiles.length - 1] === 0;
+        }
+
+        function moveTile(index) {
+            const emptyIndex = tiles.indexOf(0);
+            const validMoves = [
+                emptyIndex - 1,
+                emptyIndex + 1,
+                emptyIndex - boardSize,
+                emptyIndex + boardSize
+            ];
+
+            if (validMoves.includes(index)) {
+                [tiles[emptyIndex], tiles[index]] = [tiles[index], tiles[emptyIndex]];
+                moveCount++;
+                updateMoveCount();
+                createBoard();
+                if (touchSoundToggle.checked) clickSound.play();
+
+                if (isSolved()) {
+                    message.textContent = `Congratulations! You solved the puzzle in ${moveCount} moves!`;
+                    if (touchSoundToggle.checked) successSound.play();
+                    nextLevelButton.style.display = 'inline-block';
+                }
+            }
+        }
+
+        function updateMoveCount() {
+            moveCountSpan.textContent = moveCount;
+        }
+
+        function goHome() {
+            gameScreen.style.display = 'none';
+            settingsMenu.style.display = 'none';
+            levelsMenu.style.display = 'none';
+            homeScreen.style.display = 'block';
+        }
+
+        function showSettingsMenu() {
+            gameScreen.style.display = 'none';
+            levelsMenu.style.display = 'none';
+            homeScreen.style.display = 'none';
+            settingsMenu.style.display = 'block';
+        }
+
+        function showLevelsMenu() {
+            levelsDiv.innerHTML = '';
+            for (let i = 1; i <= levels; i++) {
+                const button = document.createElement('button');
+                button.textContent = `Level ${i}`;
+                button.onclick = () => {
+                    currentLevel = i;
+                    startGame();
+                };
+                levelsDiv.appendChild(button);
+            }
+            gameScreen.style.display = 'none';
+            settingsMenu.style.display = 'none';
+            homeScreen.style.display = 'none';
+            levelsMenu.style.display = 'block';
+        }
+
+        function startGame() {
+            homeScreen.style.display = 'none';
+            settingsMenu.style.display = 'none';
+            levelsMenu.style.display = 'none';
+            gameScreen.style.display = 'block';
+            currentLevelSpan.textContent = currentLevel;
+            loadLevel();
+        }
+
+        function loadLevel() {
+            moveCount = 0;
+            updateMoveCount();
+            nextLevelButton.style.display = 'none';
+            tiles = Array.from({ length: boardSize * boardSize }, (_, i) => i + 1);
+            tiles[tiles.length - 1] = 0;
+            createBoard();
+            if (bgMusicToggle.checked) bgMusic.play();
+        }
+
+        gameBoard.addEventListener('click', (e) => {
+            const index = parseInt(e.target.dataset.index);
+            if (!isNaN(index)) {
+                moveTile(index);
+            }
+        });
+
+        shuffleButton.addEventListener('click', shuffleBoard);
+
+        solveButton.addEventListener('click', () => {
+            moveCount = 0;
+            updateMoveCount();
+            tiles = Array.from({ length: boardSize * boardSize }, (_, i) => i + 1);
+            tiles[tiles.length - 1] = 0;
+            createBoard();
+            message.textContent = '';
+        });
+
+        nextLevelButton.addEventListener('click', () => {
+            if (currentLevel < levels) {
+                currentLevel++;
+                startGame();
+            } else {
+                message.textContent = 'You have completed all levels!';
+            }
+        });
+
+        goHome(); // Start at home screen
+    </script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Barbie Puzzle Game</title>
+    <style>
+        body {
+            /* font-family: 'Comic Sans MS', sans-serif; */
+            background: linear-gradient(to bottom, #ffccff, #ffe6f0);
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        h1 {
+            color: #d43da4;
+            margin-top: 50px;
+            font-size: 3em;
+            animation: fadeIn 2s;
+        }
+
+        #home {
+            text-align:center;
+            position: relative;
+            height: 100vh;
+        }
+
+        #home button {
+            background-color: #d43da4;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            cursor: pointer;
+            border-radius: 20px;
+            margin: 10px;
+            box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        #home button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .balloon {
+            width: 50px;
+            height: 70px;
+            background-color: #ff99cc;
+            border-radius: 50% 50% 50% 50%;
+            position: absolute;
+            bottom: -100px;
+            animation: floatUp 6s infinite ease-in-out;
+            z-index: 1;
+        }
+
+        .balloon::after {
+            content: '';
+            width: 2px;
+            height: 30px;
+            background-color: #d43da4;
+            position: absolute;
+            left: 50%;
+            top: 70px;
+            transform: translateX(-50%);
+        }
+
+        .ribbon {
+            position: absolute;
+            width: 10px;
+            height: 100px;
+            background: linear-gradient(45deg, #d43da4, #fff);
+            border-radius: 50px;
+            animation: fall 5s infinite ease-in-out;
+        }
+
+        .sparkle {
+            position: absolute;
+            width: 5px;
+            height: 5px;
+            background-color: #fff;
+            border-radius: 50%;
+            opacity: 0;
+            animation: sparkle 1.5s infinite ease-in-out;
+        }
+
+        @keyframes floatUp {
+            0% {
+                transform: translateY(0);
+                opacity: 1;
+            }
+            50% {
+                transform: translateY(-200px);
+                opacity: 0.8;
+            }
+            100% {
+                transform: translateY(-400px);
+                opacity: 0;
+            }
+        }
+
+        @keyframes fall {
+            0% {
+                transform: translateY(-150px);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(100vh);
+                opacity: 0.5;
+            }
+        }
+
+        @keyframes sparkle {
+            0% {
+                opacity: 0;
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1.5);
+            }
+            100% {
+                opacity: 0;
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="home">
+        <h1>Welcome to Barbie Puzzle Game</h1>
+        <button onclick="startGame()">Start Game</button>
+        <button onclick="showLevels()">Levels</button>
+        <button onclick="showSettings()">Settings</button>
+    </div>
+
+    <div id="glitter"></div>
+
+    <script>
+        let effectsInterval = [];
+
+        // Generate balloons periodically
+        function generateBalloon() {
+            const balloon = document.createElement('div');
+            balloon.className = 'balloon';
+            balloon.style.left = `${Math.random() * window.innerWidth}px`;
+            document.body.appendChild(balloon);
+            setTimeout(() => balloon.remove(), 6000);
+        }
+
+        // Generate ribbons
+        function generateRibbon() {
+            const ribbon = document.createElement('div');
+            ribbon.className = 'ribbon';
+            ribbon.style.left = `${Math.random() * window.innerWidth}px`;
+            ribbon.style.animationDuration = `${Math.random() * 3 + 3}s`;
+            document.body.appendChild(ribbon);
+            setTimeout(() => ribbon.remove(), 5000);
+        }
+
+        // Generate glitter
+        function generateGlitter() {
+            for (let i = 0; i < 50; i++) {
+                const sparkle = document.createElement('div');
+                sparkle.className = 'sparkle';
+                sparkle.style.left = `${Math.random() * 100}%`;
+                sparkle.style.top = `${Math.random() * 100}%`;
+                sparkle.style.animationDelay = `${Math.random() * 2}s`;
+                sparkle.style.width = `${Math.random() * 5 + 2}px`;
+                sparkle.style.height = sparkle.style.width;
+                document.getElementById('glitter').appendChild(sparkle);
+               // setTimeout(() => sparkle.remove(), 2000);
+            }
+        }
+
+        // Start effects for the home page
+        function startEffects() {
+            effectsInterval.push(setInterval(generateBalloon, 1500));
+            effectsInterval.push(setInterval(generateRibbon, 2000));
+            generateGlitter();
+        }
+
+        // Stop all effects
+        function stopEffects() {
+            effectsInterval.forEach(clearInterval);
+            effectsInterval = [];
+        }
+
+        // Detect when the home page is displayed
+        window.onload = () => {
+            const homePage = document.getElementById('home');
+            if (homePage) {
+                startEffects();
+            }
+        };
+
+        // Placeholder functions for navigation
+        function startGame() {
+            stopEffects();
+            homeScreen.style.display = 'none';
+            settingsMenu.style.display = 'none';
+            levelsMenu.style.display = 'none';
+            gameScreen.style.display = 'block';
+            currentLevelSpan.textContent = currentLevel;
+            loadLevel();
+        }
+
+        function showLevels() {
+            stopEffects();
+            alert('Showing levels...');
+        }
+
+        function showSettings() {
+            stopEffects();
+            alert('Showing settings...');
+        }
+    </script>
+</body>
+</html>
